@@ -1,0 +1,60 @@
+DBUS-FROELING QUICK START
+=========================
+
+1. COPY FILES TO VENUS OS:
+   scp dbus-froeling.py install.sh root@<venus-ip>:/data/tmp/
+
+2. INSTALL:
+   ssh root@<venus-ip>
+   cd /data/tmp
+   ./install.sh
+
+3. CONFIGURE (if needed):
+   vi /data/etc/dbus-froeling/config.env
+   
+   Change:
+   - FROELING_HOST (default: 192.168.1.245)
+   - FROELING_PORT (default: 502)
+   - FROELING_DEVICE_ID (default: 2)
+
+4. START SERVICE:
+   ln -s /data/etc/dbus-froeling/service /service/dbus-froeling
+
+5. CHECK STATUS:
+   svstat /service/dbus-froeling
+   tail -f /var/log/dbus-froeling/current
+
+6. VIEW IN VENUS OS:
+   - Temperature sensors appear in Temperature menu
+   - Boiler status available via dbus/MQTT
+
+DBUS PATHS:
+-----------
+Buffer Top:     com.victronenergy.temperature.froeling_buffer_top
+                /Temperature (°C)
+                /Status (0=Ok, 1=Disconnected)
+
+Buffer Bottom:  com.victronenergy.temperature.froeling_buffer_bottom
+                /Temperature (°C)
+                /Status (0=Ok, 1=Disconnected)
+
+Boiler Status:  com.victronenergy.generic.froeling_status
+                /SystemStatus (text)
+                /FurnaceStatus (text)
+                /BoilerOperating (0/1 boolean)
+                /Connected (0/1)
+
+TROUBLESHOOTING:
+----------------
+Test Modbus connection:
+  mbpoll 192.168.1.245 -p 502 -a 2 -t 3 -r 2000 -c 3
+
+Check logs:
+  tail -f /var/log/dbus-froeling/current
+
+Restart service:
+  svc -t /service/dbus-froeling
+
+Stop service:
+  svc -d /service/dbus-froeling
+  rm /service/dbus-froeling

@@ -23,7 +23,6 @@ except ImportError:
 # Victron packages
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), './ext/velib_python'))
 from vedbus import VeDbusService
-from settingsdevice import SettingsDevice
 from gi.repository import GLib
 
 # Configuration
@@ -120,23 +119,16 @@ class FroelingMonitor:
         
         # Buffer Top Temperature
         servicename = 'com.victronenergy.temperature.froeling_buffer_top'
-        self.services['buffer_top'] = VeDbusService(servicename)
-        service = self.services['buffer_top']
+        deviceinstance = 100
         
-        # Create device instance for Settings
-        settings = SettingsDevice(
-            bus=service._dbusconn,
-            supportedSettings={
-                'instance': ['/Settings/Devices/froeling_buffer_top/ClassAndVrmInstance', 100, 0, 255],
-            },
-            eventCallback=None
-        )
+        self.services['buffer_top'] = VeDbusService(servicename, register=False)
+        service = self.services['buffer_top']
         
         # Mandatory paths for all services
         service.add_path('/Mgmt/ProcessName', __file__)
         service.add_path('/Mgmt/ProcessVersion', '1.0.0')
         service.add_path('/Mgmt/Connection', f'{FROELING_HOST}:{FROELING_PORT}')
-        service.add_path('/DeviceInstance', settings.get_value('instance'))
+        service.add_path('/DeviceInstance', deviceinstance)
         service.add_path('/ProductId', 0xFFFF)  # Generic product ID for custom service
         service.add_path('/ProductName', 'Froeling Buffer Top')
         service.add_path('/FirmwareVersion', '1.0.0')
@@ -149,25 +141,22 @@ class FroelingMonitor:
         service.add_path('/TemperatureType', 2)  # 0=battery, 1=fridge, 2=generic
         service.add_path('/CustomName', 'Buffer Top')
         
-        logger.info(f"Created service: {servicename} on device instance {settings.get_value('instance')}")
+        # Register the service
+        service.register()
+        
+        logger.info(f"Created service: {servicename} on device instance {deviceinstance}")
         
         # Buffer Bottom Temperature
         servicename = 'com.victronenergy.temperature.froeling_buffer_bottom'
-        self.services['buffer_bottom'] = VeDbusService(servicename)
-        service = self.services['buffer_bottom']
+        deviceinstance = 101
         
-        settings = SettingsDevice(
-            bus=service._dbusconn,
-            supportedSettings={
-                'instance': ['/Settings/Devices/froeling_buffer_bottom/ClassAndVrmInstance', 101, 0, 255],
-            },
-            eventCallback=None
-        )
+        self.services['buffer_bottom'] = VeDbusService(servicename, register=False)
+        service = self.services['buffer_bottom']
         
         service.add_path('/Mgmt/ProcessName', __file__)
         service.add_path('/Mgmt/ProcessVersion', '1.0.0')
         service.add_path('/Mgmt/Connection', f'{FROELING_HOST}:{FROELING_PORT}')
-        service.add_path('/DeviceInstance', settings.get_value('instance'))
+        service.add_path('/DeviceInstance', deviceinstance)
         service.add_path('/ProductId', 0xFFFF)
         service.add_path('/ProductName', 'Froeling Buffer Bottom')
         service.add_path('/FirmwareVersion', '1.0.0')
@@ -179,28 +168,25 @@ class FroelingMonitor:
         service.add_path('/TemperatureType', 2)
         service.add_path('/CustomName', 'Buffer Bottom')
         
-        logger.info(f"Created service: {servicename} on device instance {settings.get_value('instance')}")
+        # Register the service
+        service.register()
+        
+        logger.info(f"Created service: {servicename} on device instance {deviceinstance}")
     
     def create_status_service(self):
         """Create dbus service for boiler status"""
         
         servicename = 'com.victronenergy.generic.froeling_status'
-        self.services['status'] = VeDbusService(servicename)
-        service = self.services['status']
+        deviceinstance = 102
         
-        settings = SettingsDevice(
-            bus=service._dbusconn,
-            supportedSettings={
-                'instance': ['/Settings/Devices/froeling_status/ClassAndVrmInstance', 102, 0, 255],
-            },
-            eventCallback=None
-        )
+        self.services['status'] = VeDbusService(servicename, register=False)
+        service = self.services['status']
         
         # Mandatory paths
         service.add_path('/Mgmt/ProcessName', __file__)
         service.add_path('/Mgmt/ProcessVersion', '1.0.0')
         service.add_path('/Mgmt/Connection', f'{FROELING_HOST}:{FROELING_PORT}')
-        service.add_path('/DeviceInstance', settings.get_value('instance'))
+        service.add_path('/DeviceInstance', deviceinstance)
         service.add_path('/ProductId', 0xFFFF)
         service.add_path('/ProductName', 'Froeling Status')
         service.add_path('/FirmwareVersion', '1.0.0')
@@ -214,7 +200,10 @@ class FroelingMonitor:
         service.add_path('/FurnaceStatusCode', None, writeable=False)
         service.add_path('/BoilerOperating', 0, writeable=False)  # Boolean: 0=not operating, 1=operating
         
-        logger.info(f"Created service: {servicename} on device instance {settings.get_value('instance')}")
+        # Register the service
+        service.register()
+        
+        logger.info(f"Created service: {servicename} on device instance {deviceinstance}")
     
     def read_temperature(self, register):
         """Read temperature from register (value is in °C * 2)"""

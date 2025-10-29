@@ -12,8 +12,13 @@ import sys
 import os
 import logging
 import time
-from pymodbus.client import ModbusTcpClient
-from pymodbus.exceptions import ModbusException
+
+# Pymodbus 2.5.3 compatibility (Venus OS default version)
+try:
+    from pymodbus.client.sync import ModbusTcpClient
+except ImportError:
+    # Fallback for newer pymodbus versions
+    from pymodbus.client import ModbusTcpClient
 
 # Victron packages
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), './ext/velib_python'))
@@ -25,7 +30,7 @@ from gi.repository import GLib
 FROELING_HOST = os.environ.get('FROELING_HOST', '192.168.1.245')
 FROELING_PORT = int(os.environ.get('FROELING_PORT', '502'))
 FROELING_DEVICE_ID = int(os.environ.get('FROELING_DEVICE_ID', '2'))
-UPDATE_INTERVAL = int(os.environ.get('UPDATE_INTERVAL', '10000'))  # milliseconds
+UPDATE_INTERVAL = int(os.environ.get('UPDATE_INTERVAL', '10000'))  # milliseconds (10 seconds)
 
 # Modbus register definitions (offsets from 30001)
 BUFFER_TEMP_TOP = 2000      # Register 32001: Buffer top temperature (°C * 2)
@@ -88,7 +93,10 @@ class FroelingMonitor:
     def connect_modbus(self):
         """Connect to Froeling modbus TCP"""
         try:
-            self.modbus_client = ModbusTcpClient(FROELING_HOST, port=FROELING_PORT)
+            self.modbus_client = ModbusTcpClient(
+                FROELING_HOST, 
+                port=FROELING_PORT
+            )
             if self.modbus_client.connect():
                 logger.info(f"Connected to Froeling at {FROELING_HOST}:{FROELING_PORT}")
             else:

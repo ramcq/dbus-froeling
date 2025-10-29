@@ -31,6 +31,7 @@ Publishes buffer tank temperatures and boiler status to Venus OS for integration
 - Venus OS (tested on v2.90+)
 - Froeling T4e with Modbus TCP enabled
 - Network connectivity between Venus OS and Froeling
+- **Note**: Compatible with pymodbus 2.5.3 (included in Venus OS) and newer versions
 
 ### Quick Install
 
@@ -68,10 +69,10 @@ Edit `/data/etc/dbus-froeling/config.env`:
 
 ```bash
 # Froeling T4e Configuration
-FROELING_HOST=192.168.1.245     # IP address of your Froeling
-FROELING_PORT=502               # Modbus TCP port (default 502)
+FROELING_HOST=192.168.1.245    # IP address of your Froeling
+FROELING_PORT=502               # Modbus TCP port (standard Modbus port)
 FROELING_DEVICE_ID=2            # Modbus device/slave ID (default 2)
-UPDATE_INTERVAL=5000            # Update interval in milliseconds
+UPDATE_INTERVAL=10000           # Update interval in milliseconds (10 seconds)
 ```
 
 After changing configuration, restart the service:

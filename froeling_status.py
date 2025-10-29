@@ -4,7 +4,11 @@ Simple script to fetch buffer tank temperatures and operating status
 from Froeling T4e pellet boiler via Modbus TCP
 """
 
-from pymodbus.client import ModbusTcpClient
+try:
+    from pymodbus.client.sync import ModbusTcpClient
+except ImportError:
+    # Fallback for newer pymodbus versions
+    from pymodbus.client import ModbusTcpClient
 import sys
 
 # Configuration

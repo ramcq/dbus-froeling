@@ -16,6 +16,7 @@ DBUS-FROELING QUICK START
    - FROELING_HOST (default: 192.168.1.245)
    - FROELING_PORT (default: 502)
    - FROELING_DEVICE_ID (default: 2)
+   - UPDATE_INTERVAL (default: 10000ms = 10 seconds)
 
 4. START SERVICE:
    ln -s /data/etc/dbus-froeling/service /service/dbus-froeling

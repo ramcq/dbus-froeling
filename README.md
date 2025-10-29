@@ -213,11 +213,20 @@ ln -sf /data/etc/dbus-froeling/service /service/dbus-froeling
 - 7: Preparation
 - 8: Pre-heating
 - 9: Ignition
+- 10: Shutdown Wait
+- 11: Shutdown Wait 1
+- 12: Shutdown Feed 1
+- 13: Shutdown Wait 2
+- 14: Shutdown Feed 2
+- 15: Cleaning
+- 16: Wait 2h
+- 17: Suction Heating
+- 18: Ignition Fault
 - 19: Ready
 
 ### Boiler Operating Logic
 
-The `/BoilerOperating` boolean is true (1) when furnace status is **2-9** (any active/non-idle state):
+The `/BoilerOperating` boolean is true (1) when furnace status is **2-17** (any active/non-idle state):
 - 2: Heating Up
 - 3: Heating
 - 4: Fire Maintenance
@@ -226,10 +235,18 @@ The `/BoilerOperating` boolean is true (1) when furnace status is **2-9** (any a
 - 7: Preparation
 - 8: Pre-heating
 - 9: Ignition
+- 10: Shutdown Wait
+- 11: Shutdown Wait 1
+- 12: Shutdown Feed 1
+- 13: Shutdown Wait 2
+- 14: Shutdown Feed 2
+- 15: Cleaning
+- 16: Wait 2h
+- 17: Suction Heating
 
-Only **0 (FAULT)** and **1 (Furnace Off)** are considered not operating (0).
+Only **0 (FAULT)**, **1 (Furnace Off)**, **18 (Ignition Fault)**, and **19 (Ready/Standby)** are considered not operating (0).
 
-This means the boiler is considered "operating" whenever it's doing anything other than being completely off or in a fault state.
+This means the boiler is considered "operating" whenever it's doing anything - heating, shutting down, cleaning, etc. - only complete shutdown, standby, or fault states are considered not operating.
 
 ## Files
 

@@ -62,6 +62,15 @@ FURNACE_STATUS_MAP = {
     7: "Preparation",
     8: "Pre-heating",
     9: "Ignition",
+    10: "Shutdown Wait",
+    11: "Shutdown Wait 1",
+    12: "Shutdown Feed 1",
+    13: "Shutdown Wait 2",
+    14: "Shutdown Feed 2",
+    15: "Cleaning",
+    16: "Wait 2h",
+    17: "Suction Heating",
+    18: "Ignition Fault",
     19: "Ready"
 }
 
@@ -216,7 +225,7 @@ class FroelingMonitor:
             result = self.modbus_client.read_input_registers(
                 register, 
                 count=1, 
-                slave=FROELING_DEVICE_ID
+                unit=FROELING_DEVICE_ID
             )
             
             if not result.isError() and hasattr(result, 'registers'):
@@ -241,7 +250,7 @@ class FroelingMonitor:
             result = self.modbus_client.read_input_registers(
                 register,
                 count=1,
-                slave=FROELING_DEVICE_ID
+                unit=FROELING_DEVICE_ID
             )
             
             if not result.isError() and hasattr(result, 'registers'):
@@ -311,9 +320,9 @@ class FroelingMonitor:
                 self.services['status']['/FurnaceStatusCode'] = furnace_status_code
                 
                 # Determine if boiler is operating (simplified boolean)
-                # Consider "operating" for all active/non-idle states (2-9)
-                # Only "FAULT" (0) and "Furnace Off" (1) are considered not operating
-                operating = furnace_status_code >= 2 and furnace_status_code <= 9
+                # Consider "operating" for all active/non-idle states (2-17)
+                # Only "FAULT" (0), "Furnace Off" (1), "Ignition Fault" (18), and "Ready" (19) are not operating
+                operating = furnace_status_code >= 2 and furnace_status_code <= 17
                 self.services['status']['/BoilerOperating'] = 1 if operating else 0
             
             logger.debug(f"Updated: Top={temp_top}°C, Bottom={temp_bottom}°C, "

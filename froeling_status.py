@@ -17,12 +17,12 @@ PORT = 502
 DEVICE_ID = 2
 
 # Register definitions (based on Modbus address - 30001 offset for input registers)
-BUFFER_TEMP_TOP = 2000      # Register 32001: Buffer top temperature
-BUFFER_TEMP_BOTTOM = 2002   # Register 32003: Buffer bottom temperature
+BUFFER_TEMP_TOP = 2000      # Register 32001: Buffer top temperature (°C * 2)
+BUFFER_TEMP_BOTTOM = 2002   # Register 32003: Buffer bottom temperature (°C * 2)
 SYSTEM_STATUS = 4000        # Register 34001: System operating status
 FURNACE_STATUS = 4001       # Register 34002: Furnace/boiler status
 
-# Status mappings (from Home Assistant integration)
+# Status mappings
 SYSTEM_STATUS_MAP = {
     0: "Continuous Load",
     1: "Domestic Hot Water",
@@ -46,6 +46,15 @@ FURNACE_STATUS_MAP = {
     7: "Preparation",
     8: "Pre-heating",
     9: "Ignition",
+    10: "Shutdown Wait",
+    11: "Shutdown Wait 1",
+    12: "Shutdown Feed 1",
+    13: "Shutdown Wait 2",
+    14: "Shutdown Feed 2",
+    15: "Cleaning",
+    16: "Wait 2h",
+    17: "Suction Heating",
+    18: "Ignition Fault",
     19: "Ready"
 }
 
@@ -53,7 +62,8 @@ FURNACE_STATUS_MAP = {
 def read_temperature(client, register):
     """Read temperature from register (value is in °C * 2)"""
     try:
-        result = client.read_input_registers(register, count=1, slave=DEVICE_ID)
+        result = client.read_input_registers(register, count=1, unit=DEVICE_ID)
+        
         if not result.isError():
             raw_value = result.registers[0]
             # Convert from °C * 2 to actual °C
@@ -62,6 +72,7 @@ def read_temperature(client, register):
         else:
             print(f"Error reading register {register}: {result}")
             return None
+            
     except Exception as e:
         print(f"Exception reading register {register}: {e}")
         return None
@@ -70,26 +81,33 @@ def read_temperature(client, register):
 def read_status(client, register, status_map):
     """Read status value and map to description"""
     try:
-        result = client.read_input_registers(register, count=1, slave=DEVICE_ID)
+        result = client.read_input_registers(register, count=1, unit=DEVICE_ID)
+        
         if not result.isError():
             status_value = result.registers[0]
             status_desc = status_map.get(status_value, f"Unknown ({status_value})")
-            return status_desc
+            return status_value, status_desc
         else:
             print(f"Error reading register {register}: {result}")
-            return None
+            return None, None
+            
     except Exception as e:
         print(f"Exception reading register {register}: {e}")
-        return None
+        return None, None
 
 
 def main():
     print(f"Connecting to Froeling T4e at {HOST}:{PORT}...")
+    print(f"Using Device ID: {DEVICE_ID}\n")
     
     client = ModbusTcpClient(HOST, port=PORT)
     
     if not client.connect():
         print("Failed to connect to Froeling T4e")
+        print("\nTroubleshooting:")
+        print("1. Check if Froeling IP is correct")
+        print("2. Check if port 502 is open (try: nc -zv 192.168.1.245 502)")
+        print("3. Verify Modbus TCP is enabled on the Froeling")
         sys.exit(1)
     
     print("Connected successfully!\n")
@@ -110,13 +128,18 @@ def main():
         
         # Read operating status
         print("\n=== Operating Status ===")
-        system_status = read_status(client, SYSTEM_STATUS, SYSTEM_STATUS_MAP)
+        system_code, system_status = read_status(client, SYSTEM_STATUS, SYSTEM_STATUS_MAP)
         if system_status:
-            print(f"System Status:  {system_status}")
+            print(f"System Status:  {system_status} (code: {system_code})")
         
-        furnace_status = read_status(client, FURNACE_STATUS, FURNACE_STATUS_MAP)
+        furnace_code, furnace_status = read_status(client, FURNACE_STATUS, FURNACE_STATUS_MAP)
         if furnace_status:
-            print(f"Furnace Status: {furnace_status}")
+            print(f"Furnace Status: {furnace_status} (code: {furnace_code})")
+            
+            # Show operating state
+            if furnace_code is not None:
+                operating = furnace_code >= 2 and furnace_code <= 17
+                print(f"Boiler Operating: {'YES' if operating else 'NO'}")
         
     finally:
         client.close()

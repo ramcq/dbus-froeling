@@ -2,14 +2,22 @@ DBUS-FROELING QUICK START
 =========================
 
 1. COPY FILES TO VENUS OS:
-   scp dbus-froeling.py install.sh root@<venus-ip>:/data/tmp/
+   scp dbus-froeling.py setup.sh root@<venus-ip>:/data/home/root/dbus-froeling/
 
-2. INSTALL:
+2. SETUP VELIB_PYTHON:
    ssh root@<venus-ip>
-   cd /data/tmp
+   cd /data/home/root/dbus-froeling
+   chmod +x setup.sh
+   ./setup.sh
+
+3. TEST IT WORKS:
+   python3 dbus-froeling.py
+   (Press Ctrl+C to stop after you see it connecting)
+
+4. INSTALL AS SERVICE:
    ./install.sh
 
-3. CONFIGURE (if needed):
+5. CONFIGURE (if needed):
    vi /data/etc/dbus-froeling/config.env
    
    Change:
@@ -18,14 +26,14 @@ DBUS-FROELING QUICK START
    - FROELING_DEVICE_ID (default: 2)
    - UPDATE_INTERVAL (default: 10000ms = 10 seconds)
 
-4. START SERVICE:
+6. START SERVICE:
    ln -s /data/etc/dbus-froeling/service /service/dbus-froeling
 
-5. CHECK STATUS:
+7. CHECK STATUS:
    svstat /service/dbus-froeling
    tail -f /var/log/dbus-froeling/current
 
-6. VIEW IN VENUS OS:
+8. VIEW IN VENUS OS:
    - Temperature sensors appear in Temperature menu
    - Boiler status available via dbus/MQTT
 

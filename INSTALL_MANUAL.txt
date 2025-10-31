@@ -1,0 +1,95 @@
+MANUAL INSTALLATION GUIDE FOR DBUS-FROELING
+============================================
+
+If the automatic installer doesn't work, follow these steps:
+
+1. CREATE DIRECTORY ON VENUS OS:
+   ssh root@<venus-ip>
+   mkdir -p /data/etc/dbus-froeling
+   cd /data/etc/dbus-froeling
+
+2. COPY FILES TO VENUS OS:
+   From your computer:
+   scp dbus-froeling.py setup.sh root@<venus-ip>:/data/etc/dbus-froeling/
+
+3. DOWNLOAD VELIB_PYTHON:
+   On Venus OS:
+   cd /data/etc/dbus-froeling
+   chmod +x setup.sh
+   ./setup.sh
+   
+   OR manually:
+   mkdir -p ext
+   cd ext
+   opkg update
+   opkg install git
+   git clone https://github.com/victronenergy/velib_python.git
+   cd ..
+
+4. TEST IT WORKS:
+   python3 dbus-froeling.py
+   
+   You should see connection logs and temperature updates.
+   Press Ctrl+C to stop.
+
+5. CREATE SERVICE DIRECTORIES:
+   mkdir -p service/log
+
+6. CREATE RUN SCRIPT:
+   cat > service/run << 'RUNSCRIPT'
+   #!/bin/sh
+   exec 2>&1
+   exec python3 /data/etc/dbus-froeling/dbus-froeling.py
+   RUNSCRIPT
+   
+   chmod +x service/run
+
+7. CREATE LOG RUN SCRIPT:
+   cat > service/log/run << 'LOGSCRIPT'
+   #!/bin/sh
+   exec multilog t s25000 n4 /var/log/dbus-froeling
+   LOGSCRIPT
+   
+   chmod +x service/log/run
+
+8. CREATE CONFIG FILE (optional):
+   cat > config.env << 'CONFIG'
+   FROELING_HOST=192.168.1.245
+   FROELING_PORT=502
+   FROELING_DEVICE_ID=2
+   UPDATE_INTERVAL=10000
+   CONFIG
+
+9. START THE SERVICE:
+   ln -s /data/etc/dbus-froeling/service /service/dbus-froeling
+
+10. CHECK IT'S RUNNING:
+    svstat /service/dbus-froeling
+    
+    Should show: /service/dbus-froeling: up (pid XXXX) XX seconds
+
+11. VIEW LOGS:
+    tail -f /var/log/dbus-froeling/current
+
+12. MAKE IT SURVIVE REBOOTS:
+    cat > /data/rc.local << 'RCLOCAL'
+    #!/bin/bash
+    ln -sf /data/etc/dbus-froeling/service /service/dbus-froeling
+    RCLOCAL
+    
+    chmod +x /data/rc.local
+
+TROUBLESHOOTING:
+===============
+
+Problem: "ModuleNotFoundError: No module named 'vedbus'"
+Solution: Run ./setup.sh to download velib_python
+
+Problem: Service won't start
+Solution: Check logs with: tail -f /var/log/dbus-froeling/current
+
+Problem: Can't connect to Froeling
+Solution: Test with: mbpoll 192.168.1.245 -p 502 -a 2 -t 3 -r 2000 -c 1
+
+Problem: Service stops after reboot
+Solution: Make sure /data/rc.local exists and has the symlink command

@@ -27,6 +27,11 @@ from vedbus import VeDbusService
 from settingsdevice import SettingsDevice
 from gi.repository import GLib
 from dbus.mainloop.glib import DBusGMainLoop
+import dbus
+
+def private_bus():
+    """Create a private dbus connection for each service"""
+    return dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus()
 
 # Configuration
 FROELING_HOST = os.environ.get('FROELING_HOST', '192.168.1.245')
@@ -89,8 +94,8 @@ class TemperatureSensor:
         self.productname = productname
         self.customname = customname
         
-        # Create the dbus service
-        self.dbusservice = VeDbusService(servicename)
+        # Create the dbus service with private bus and register=False
+        self.dbusservice = VeDbusService(servicename, bus=private_bus(), register=False)
         
         # Create settings for device instance (format: class:instance)
         self.settings = SettingsDevice(
@@ -122,6 +127,9 @@ class TemperatureSensor:
         self.dbusservice.add_path('/TemperatureType', 2)  # 2=generic
         self.dbusservice.add_path('/CustomName', customname)
         
+        # Now register the service after all paths are added
+        self.dbusservice.register()
+        
         logger.info(f"Created temperature sensor: {servicename} (instance {deviceinstance})")
     
     def update(self, temperature):
@@ -142,8 +150,8 @@ class BoilerStatus:
         self.servicename = servicename
         self.productname = productname
         
-        # Create the dbus service
-        self.dbusservice = VeDbusService(servicename)
+        # Create the dbus service with private bus and register=False
+        self.dbusservice = VeDbusService(servicename, bus=private_bus(), register=False)
         
         # Create settings for device instance (format: class:instance)
         self.settings = SettingsDevice(
@@ -175,6 +183,9 @@ class BoilerStatus:
         self.dbusservice.add_path('/FurnaceStatus', None, writeable=False)
         self.dbusservice.add_path('/FurnaceStatusCode', None, writeable=False)
         self.dbusservice.add_path('/BoilerOperating', 0, writeable=False)
+        
+        # Now register the service after all paths are added
+        self.dbusservice.register()
         
         logger.info(f"Created boiler status: {servicename} (instance {deviceinstance})")
     

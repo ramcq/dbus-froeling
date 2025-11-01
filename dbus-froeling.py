@@ -31,7 +31,7 @@ import dbus
 
 def private_bus():
     """Create a private dbus connection for each service"""
-    return dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus()
+    return dbus.SessionBus(private=True) if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus(private=True)
 
 # Configuration
 FROELING_HOST = os.environ.get('FROELING_HOST', '192.168.1.245')

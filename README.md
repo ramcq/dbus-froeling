@@ -15,7 +15,7 @@ Publishes buffer tank temperatures and boiler status to Venus OS for integration
 - **Boiler status monitoring**:
   - System operating mode (Automatic, Domestic Hot Water, etc.)
   - Furnace state (Heating, Off, Ignition, etc.)
-  - Simple boolean: Boiler Operating (yes/no)
+  - Digital input contact: Boiler Operating (running/stopped)
   - Available via dbus and published to MQTT
 
 - **Robust implementation**:
@@ -107,9 +107,19 @@ Service: `com.victronenergy.generic.froeling_status`
 - `/SystemStatusCode` - Numeric code (0-8)
 - `/FurnaceStatus` - Text: "Heating", "Furnace Off", "Ignition", etc.
 - `/FurnaceStatusCode` - Numeric code (0-19)
-- `/BoilerOperating` - Boolean: 1=operating, 0=not operating
 - `/Connected` - Connection state
 - `/DeviceInstance` - 102 (default)
+
+### Boiler Operating Contact (Digital Input)
+Service: `com.victronenergy.digitalinput.froeling_operating`
+
+- `/State` - 10=running, 11=stopped
+- `/Type` - 9 (Generator)
+- `/Alarm` - 0 (no alarm)
+- `/Count` - Pulse counter (not used)
+- `/CustomName` - "Boiler Operating"
+- `/Connected` - Connection state
+- `/DeviceInstance` - 103 (default)
 
 ## MQTT Integration
 
@@ -121,21 +131,21 @@ N/<portal-id>/temperature/<instance>/Temperature
 N/<portal-id>/temperature/<instance>/Status
 N/<portal-id>/generic/<instance>/SystemStatus
 N/<portal-id>/generic/<instance>/FurnaceStatus
-N/<portal-id>/generic/<instance>/BoilerOperating
+N/<portal-id>/digitalinput/<instance>/State
 ```
 
 ### Example: Using Boiler Status in Node-RED
 
 ```javascript
-// Subscribe to boiler operating status
-msg.topic = "N/+/generic/102/BoilerOperating";
+// Subscribe to boiler operating status (digital input)
+msg.topic = "N/+/digitalinput/103/State";
 
 // Check if boiler is running
-if (msg.payload == "1") {
-    // Boiler is operating
+if (msg.payload == "10") {
+    // Boiler is running
     msg.payload = "Boiler is heating";
 } else {
-    // Boiler is not operating
+    // Boiler is stopped
     msg.payload = "Boiler is off";
 }
 return msg;
@@ -147,7 +157,8 @@ Temperature sensors appear automatically in VRM portal under "Temperatures".
 
 To see boiler status in VRM:
 1. Go to Settings → VRM online portal → Show
-2. Enable "Generic" device types
+2. Enable "Generic" device types (for detailed status)
+3. Enable "Digital Input" device types (for operating contact)
 
 ## Troubleshooting
 
@@ -226,7 +237,7 @@ ln -sf /data/etc/dbus-froeling/service /service/dbus-froeling
 
 ### Boiler Operating Logic
 
-The `/BoilerOperating` boolean is true (1) when furnace status is **2-17** (any active/non-idle state):
+The digital input `/State` is **10 (running)** when furnace status is **2-17** (any active/non-idle state):
 - 2: Heating Up
 - 3: Heating
 - 4: Fire Maintenance
@@ -244,9 +255,9 @@ The `/BoilerOperating` boolean is true (1) when furnace status is **2-17** (any 
 - 16: Wait 2h
 - 17: Suction Heating
 
-Only **0 (FAULT)**, **1 (Furnace Off)**, **18 (Ignition Fault)**, and **19 (Ready/Standby)** are considered not operating (0).
+Only **0 (FAULT)**, **1 (Furnace Off)**, **18 (Ignition Fault)**, and **19 (Ready/Standby)** are considered not operating (State = **11 (stopped)**).
 
-This means the boiler is considered "operating" whenever it's doing anything - heating, shutting down, cleaning, etc. - only complete shutdown, standby, or fault states are considered not operating.
+This means the boiler is considered "running" (State=10) whenever it's doing anything - heating, shutting down, cleaning, etc. - only complete shutdown, standby, or fault states are considered "stopped" (State=11).
 
 ## Files
 

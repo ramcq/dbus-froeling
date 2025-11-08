@@ -145,14 +145,14 @@ class TemperatureSensor:
 
 class BoilerStatus:
     """Represents the boiler status device on dbus"""
-    
+
     def __init__(self, servicename, settingspath, default_instance, productname):
         self.servicename = servicename
         self.productname = productname
-        
+
         # Create the dbus service with private bus and register=False
         self.dbusservice = VeDbusService(servicename, bus=private_bus(), register=False)
-        
+
         # Create settings for device instance (format: class:instance)
         self.settings = SettingsDevice(
             bus=self.dbusservice._dbusconn,
@@ -161,11 +161,11 @@ class BoilerStatus:
             },
             eventCallback=None
         )
-        
+
         # Parse the device instance from settings (format is class:instance)
         class_and_instance = self.settings['instance']
         deviceinstance = int(class_and_instance.split(':')[1])
-        
+
         # Mandatory paths
         self.dbusservice.add_path('/Mgmt/ProcessName', __file__)
         self.dbusservice.add_path('/Mgmt/ProcessVersion', '1.0.0')
@@ -176,19 +176,18 @@ class BoilerStatus:
         self.dbusservice.add_path('/FirmwareVersion', '1.0.0')
         self.dbusservice.add_path('/HardwareVersion', 'T4e')
         self.dbusservice.add_path('/Connected', 1)
-        
+
         # Custom status paths
         self.dbusservice.add_path('/SystemStatus', None, writeable=False)
         self.dbusservice.add_path('/SystemStatusCode', None, writeable=False)
         self.dbusservice.add_path('/FurnaceStatus', None, writeable=False)
         self.dbusservice.add_path('/FurnaceStatusCode', None, writeable=False)
-        self.dbusservice.add_path('/BoilerOperating', 0, writeable=False)
-        
+
         # Now register the service after all paths are added
         self.dbusservice.register()
-        
+
         logger.info(f"Created boiler status: {servicename} (instance {deviceinstance})")
-    
+
     def update(self, system_status_code, furnace_status_code):
         """Update the status values"""
         if system_status_code is not None:
@@ -198,16 +197,75 @@ class BoilerStatus:
             self.dbusservice['/Connected'] = 1
         else:
             self.dbusservice['/Connected'] = 0
-        
+
         if furnace_status_code is not None:
             furnace_status_text = FURNACE_STATUS_MAP.get(furnace_status_code, f"Unknown ({furnace_status_code})")
             self.dbusservice['/FurnaceStatus'] = furnace_status_text
             self.dbusservice['/FurnaceStatusCode'] = furnace_status_code
-            
+
+
+class BoilerOperatingContact:
+    """Represents the boiler operating contact as a digital input device"""
+
+    def __init__(self, servicename, settingspath, default_instance, productname, customname):
+        self.servicename = servicename
+        self.productname = productname
+        self.customname = customname
+
+        # Create the dbus service with private bus and register=False
+        self.dbusservice = VeDbusService(servicename, bus=private_bus(), register=False)
+
+        # Create settings for device instance (format: class:instance)
+        self.settings = SettingsDevice(
+            bus=self.dbusservice._dbusconn,
+            supportedSettings={
+                'instance': [settingspath, f'digitalinput:{default_instance}', 0, 0],
+            },
+            eventCallback=None
+        )
+
+        # Parse the device instance from settings (format is class:instance)
+        class_and_instance = self.settings['instance']
+        deviceinstance = int(class_and_instance.split(':')[1])
+
+        # Mandatory paths
+        self.dbusservice.add_path('/Mgmt/ProcessName', __file__)
+        self.dbusservice.add_path('/Mgmt/ProcessVersion', '1.0.0')
+        self.dbusservice.add_path('/Mgmt/Connection', f'{FROELING_HOST}:{FROELING_PORT}')
+        self.dbusservice.add_path('/DeviceInstance', deviceinstance)
+        self.dbusservice.add_path('/ProductId', 0xFFFF)
+        self.dbusservice.add_path('/ProductName', productname)
+        self.dbusservice.add_path('/FirmwareVersion', '1.0.0')
+        self.dbusservice.add_path('/HardwareVersion', 'T4e')
+        self.dbusservice.add_path('/Connected', 1)
+
+        # Digital input specific paths
+        # State: 10=running, 11=stopped
+        self.dbusservice.add_path('/State', 11, writeable=False)
+        # Type: 9=Generator (closest match for a boiler)
+        self.dbusservice.add_path('/Type', 9, writeable=False)
+        self.dbusservice.add_path('/Alarm', 0, writeable=False)
+        self.dbusservice.add_path('/Count', 0, writeable=False)
+        self.dbusservice.add_path('/CustomName', customname)
+
+        # Now register the service after all paths are added
+        self.dbusservice.register()
+
+        logger.info(f"Created boiler operating contact: {servicename} (instance {deviceinstance})")
+
+    def update(self, furnace_status_code):
+        """Update the digital input state based on furnace status"""
+        if furnace_status_code is not None:
             # Determine if boiler is operating
             # Operating = status codes 2-17 (all active states)
             operating = furnace_status_code >= 2 and furnace_status_code <= 17
-            self.dbusservice['/BoilerOperating'] = 1 if operating else 0
+            # State: 10=running, 11=stopped
+            self.dbusservice['/State'] = 10 if operating else 11
+            self.dbusservice['/Connected'] = 1
+        else:
+            # Disconnected - set to stopped
+            self.dbusservice['/State'] = 11
+            self.dbusservice['/Connected'] = 0
 
 
 class FroelingMonitor:
@@ -242,10 +300,18 @@ class FroelingMonitor:
             102,
             'Froeling Status'
         )
-        
+
+        self.operating_contact = BoilerOperatingContact(
+            'com.victronenergy.digitalinput.froeling_operating',
+            '/Settings/Devices/froeling_operating/ClassAndVrmInstance',
+            103,
+            'Froeling Operating Contact',
+            'Boiler Operating'
+        )
+
         # Start update timer
         GLib.timeout_add(UPDATE_INTERVAL, self.update)
-        
+
         logger.info(f"FroelingMonitor started, polling every {UPDATE_INTERVAL}ms")
     
     def connect_modbus(self):
@@ -323,6 +389,7 @@ class FroelingMonitor:
                 self.buffer_top.update(None)
                 self.buffer_bottom.update(None)
                 self.status.update(None, None)
+                self.operating_contact.update(None)
                 return True
         
         try:
@@ -337,19 +404,23 @@ class FroelingMonitor:
             # Read boiler status
             system_status_code = self.read_status(SYSTEM_STATUS)
             furnace_status_code = self.read_status(FURNACE_STATUS)
-            
+
             # Update status device
             self.status.update(system_status_code, furnace_status_code)
-            
+
+            # Update operating contact
+            self.operating_contact.update(furnace_status_code)
+
             logger.debug(f"Updated: Top={temp_top}°C, Bottom={temp_bottom}°C, "
                         f"System={system_status_code}, Furnace={furnace_status_code}")
-            
+
         except Exception as e:
             logger.error(f"Error updating values: {e}")
             # Mark devices as disconnected on error
             self.buffer_top.update(None)
             self.buffer_bottom.update(None)
             self.status.update(None, None)
+            self.operating_contact.update(None)
         
         return True  # Keep timer running
 

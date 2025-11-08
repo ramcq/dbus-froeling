@@ -143,69 +143,8 @@ class TemperatureSensor:
             self.dbusservice['/Connected'] = 0
 
 
-class BoilerStatus:
-    """Represents the boiler status device on dbus"""
-
-    def __init__(self, servicename, settingspath, default_instance, productname):
-        self.servicename = servicename
-        self.productname = productname
-
-        # Create the dbus service with private bus and register=False
-        self.dbusservice = VeDbusService(servicename, bus=private_bus(), register=False)
-
-        # Create settings for device instance (format: class:instance)
-        self.settings = SettingsDevice(
-            bus=self.dbusservice._dbusconn,
-            supportedSettings={
-                'instance': [settingspath, f'generic:{default_instance}', 0, 0],
-            },
-            eventCallback=None
-        )
-
-        # Parse the device instance from settings (format is class:instance)
-        class_and_instance = self.settings['instance']
-        deviceinstance = int(class_and_instance.split(':')[1])
-
-        # Mandatory paths
-        self.dbusservice.add_path('/Mgmt/ProcessName', __file__)
-        self.dbusservice.add_path('/Mgmt/ProcessVersion', '1.0.0')
-        self.dbusservice.add_path('/Mgmt/Connection', f'{FROELING_HOST}:{FROELING_PORT}')
-        self.dbusservice.add_path('/DeviceInstance', deviceinstance)
-        self.dbusservice.add_path('/ProductId', 0xFFFF)
-        self.dbusservice.add_path('/ProductName', productname)
-        self.dbusservice.add_path('/FirmwareVersion', '1.0.0')
-        self.dbusservice.add_path('/HardwareVersion', 'T4e')
-        self.dbusservice.add_path('/Connected', 1)
-
-        # Custom status paths
-        self.dbusservice.add_path('/SystemStatus', None, writeable=False)
-        self.dbusservice.add_path('/SystemStatusCode', None, writeable=False)
-        self.dbusservice.add_path('/FurnaceStatus', None, writeable=False)
-        self.dbusservice.add_path('/FurnaceStatusCode', None, writeable=False)
-
-        # Now register the service after all paths are added
-        self.dbusservice.register()
-
-        logger.info(f"Created boiler status: {servicename} (instance {deviceinstance})")
-
-    def update(self, system_status_code, furnace_status_code):
-        """Update the status values"""
-        if system_status_code is not None:
-            system_status_text = SYSTEM_STATUS_MAP.get(system_status_code, f"Unknown ({system_status_code})")
-            self.dbusservice['/SystemStatus'] = system_status_text
-            self.dbusservice['/SystemStatusCode'] = system_status_code
-            self.dbusservice['/Connected'] = 1
-        else:
-            self.dbusservice['/Connected'] = 0
-
-        if furnace_status_code is not None:
-            furnace_status_text = FURNACE_STATUS_MAP.get(furnace_status_code, f"Unknown ({furnace_status_code})")
-            self.dbusservice['/FurnaceStatus'] = furnace_status_text
-            self.dbusservice['/FurnaceStatusCode'] = furnace_status_code
-
-
 class BoilerOperatingContact:
-    """Represents the boiler operating contact as a digital input device"""
+    """Represents the boiler operating contact as a digital input device with status information"""
 
     def __init__(self, servicename, settingspath, default_instance, productname, customname):
         self.servicename = servicename
@@ -239,23 +178,42 @@ class BoilerOperatingContact:
         self.dbusservice.add_path('/HardwareVersion', 'T4e')
         self.dbusservice.add_path('/Connected', 1)
 
-        # Digital input specific paths
+        # Digital input specific paths with gettextcallback for human-readable state
         # State: 10=running, 11=stopped
-        self.dbusservice.add_path('/State', 11, writeable=False)
+        self.dbusservice.add_path('/State', 11, writeable=False,
+                                   gettextcallback=lambda p, v: "Running" if v == 10 else "Stopped")
         # Type: 9=Generator (closest match for a boiler)
         self.dbusservice.add_path('/Type', 9, writeable=False)
         self.dbusservice.add_path('/Alarm', 0, writeable=False)
         self.dbusservice.add_path('/Count', 0, writeable=False)
         self.dbusservice.add_path('/CustomName', customname)
 
+        # Boiler status paths (consolidated from generic device)
+        self.dbusservice.add_path('/SystemStatus', None, writeable=False)
+        self.dbusservice.add_path('/SystemStatusCode', None, writeable=False)
+        self.dbusservice.add_path('/FurnaceStatus', None, writeable=False)
+        self.dbusservice.add_path('/FurnaceStatusCode', None, writeable=False)
+
         # Now register the service after all paths are added
         self.dbusservice.register()
 
         logger.info(f"Created boiler operating contact: {servicename} (instance {deviceinstance})")
 
-    def update(self, furnace_status_code):
-        """Update the digital input state based on furnace status"""
+    def update(self, system_status_code, furnace_status_code):
+        """Update the digital input state and boiler status based on furnace status"""
+        if system_status_code is not None:
+            system_status_text = SYSTEM_STATUS_MAP.get(system_status_code, f"Unknown ({system_status_code})")
+            self.dbusservice['/SystemStatus'] = system_status_text
+            self.dbusservice['/SystemStatusCode'] = system_status_code
+            self.dbusservice['/Connected'] = 1
+        else:
+            self.dbusservice['/Connected'] = 0
+
         if furnace_status_code is not None:
+            furnace_status_text = FURNACE_STATUS_MAP.get(furnace_status_code, f"Unknown ({furnace_status_code})")
+            self.dbusservice['/FurnaceStatus'] = furnace_status_text
+            self.dbusservice['/FurnaceStatusCode'] = furnace_status_code
+
             # Determine if boiler is operating
             # Operating = status codes 2-17 (all active states)
             operating = furnace_status_code >= 2 and furnace_status_code <= 17
@@ -293,18 +251,11 @@ class FroelingMonitor:
             'Froeling Buffer Bottom',
             'Buffer Bottom'
         )
-        
-        self.status = BoilerStatus(
-            'com.victronenergy.generic.froeling_status',
-            '/Settings/Devices/froeling_status/ClassAndVrmInstance',
-            102,
-            'Froeling Status'
-        )
 
         self.operating_contact = BoilerOperatingContact(
             'com.victronenergy.digitalinput.froeling_operating',
             '/Settings/Devices/froeling_operating/ClassAndVrmInstance',
-            103,
+            102,
             'Froeling Operating Contact',
             'Boiler Operating'
         )
@@ -388,8 +339,7 @@ class FroelingMonitor:
                 # Mark all devices as disconnected
                 self.buffer_top.update(None)
                 self.buffer_bottom.update(None)
-                self.status.update(None, None)
-                self.operating_contact.update(None)
+                self.operating_contact.update(None, None)
                 return True
         
         try:
@@ -405,11 +355,8 @@ class FroelingMonitor:
             system_status_code = self.read_status(SYSTEM_STATUS)
             furnace_status_code = self.read_status(FURNACE_STATUS)
 
-            # Update status device
-            self.status.update(system_status_code, furnace_status_code)
-
-            # Update operating contact
-            self.operating_contact.update(furnace_status_code)
+            # Update operating contact (includes all status information)
+            self.operating_contact.update(system_status_code, furnace_status_code)
 
             logger.debug(f"Updated: Top={temp_top}°C, Bottom={temp_bottom}°C, "
                         f"System={system_status_code}, Furnace={furnace_status_code}")
@@ -419,8 +366,7 @@ class FroelingMonitor:
             # Mark devices as disconnected on error
             self.buffer_top.update(None)
             self.buffer_bottom.update(None)
-            self.status.update(None, None)
-            self.operating_contact.update(None)
+            self.operating_contact.update(None, None)
         
         return True  # Keep timer running
 

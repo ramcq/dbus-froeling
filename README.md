@@ -100,26 +100,25 @@ Service: `com.victronenergy.temperature.froeling_buffer_bottom`
 - `/CustomName` - "Buffer Bottom"
 - `/DeviceInstance` - 101 (default)
 
-### Boiler Status
-Service: `com.victronenergy.generic.froeling_status`
-
-- `/SystemStatus` - Text: "Automatic", "Off", "Domestic Hot Water", etc.
-- `/SystemStatusCode` - Numeric code (0-8)
-- `/FurnaceStatus` - Text: "Heating", "Furnace Off", "Ignition", etc.
-- `/FurnaceStatusCode` - Numeric code (0-19)
-- `/Connected` - Connection state
-- `/DeviceInstance` - 102 (default)
-
 ### Boiler Operating Contact (Digital Input)
 Service: `com.victronenergy.digitalinput.froeling_operating`
 
-- `/State` - 10=running, 11=stopped
+**Digital Input Paths:**
+- `/State` - 10=running, 11=stopped (with text callback: "Running"/"Stopped")
 - `/Type` - 9 (Generator)
 - `/Alarm` - 0 (no alarm)
 - `/Count` - Pulse counter (not used)
 - `/CustomName` - "Boiler Operating"
+
+**Boiler Status Paths:**
+- `/SystemStatus` - Text: "Automatic", "Off", "Domestic Hot Water", etc.
+- `/SystemStatusCode` - Numeric code (0-8)
+- `/FurnaceStatus` - Text: "Heating", "Furnace Off", "Ignition", etc.
+- `/FurnaceStatusCode` - Numeric code (0-19)
+
+**Common Paths:**
 - `/Connected` - Connection state
-- `/DeviceInstance` - 103 (default)
+- `/DeviceInstance` - 102 (default)
 
 ## MQTT Integration
 
@@ -129,36 +128,44 @@ Topics follow the standard Venus OS pattern:
 ```
 N/<portal-id>/temperature/<instance>/Temperature
 N/<portal-id>/temperature/<instance>/Status
-N/<portal-id>/generic/<instance>/SystemStatus
-N/<portal-id>/generic/<instance>/FurnaceStatus
-N/<portal-id>/digitalinput/<instance>/State
+N/<portal-id>/digitalinput/102/State
+N/<portal-id>/digitalinput/102/SystemStatus
+N/<portal-id>/digitalinput/102/FurnaceStatus
 ```
 
 ### Example: Using Boiler Status in Node-RED
 
 ```javascript
-// Subscribe to boiler operating status (digital input)
-msg.topic = "N/+/digitalinput/103/State";
+// Subscribe to boiler operating status (digital input state)
+msg.topic = "N/+/digitalinput/102/State";
 
 // Check if boiler is running
 if (msg.payload == "10") {
-    // Boiler is running
+    // Boiler is running (State=10)
     msg.payload = "Boiler is heating";
-} else {
-    // Boiler is stopped
+} else if (msg.payload == "11") {
+    // Boiler is stopped (State=11)
     msg.payload = "Boiler is off";
 }
 return msg;
+```
+
+You can also subscribe to detailed furnace status:
+```javascript
+// Subscribe to detailed furnace status
+msg.topic = "N/+/digitalinput/102/FurnaceStatus";
+// Returns text like: "Heating", "Ignition", "Furnace Off", etc.
 ```
 
 ## VRM Portal
 
 Temperature sensors appear automatically in VRM portal under "Temperatures".
 
-To see boiler status in VRM:
+To see boiler operating status in VRM:
 1. Go to Settings → VRM online portal → Show
-2. Enable "Generic" device types (for detailed status)
-3. Enable "Digital Input" device types (for operating contact)
+2. Enable "Digital Input" device types
+
+The boiler operating contact will appear as a digital input showing "Running" or "Stopped" state, along with detailed system and furnace status information.
 
 ## Troubleshooting
 

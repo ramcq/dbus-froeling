@@ -55,7 +55,70 @@ FURNACE_STATUS_MAP = {
     16: "Wait 2h",
     17: "Suction Heating",
     18: "Ignition Fault",
-    19: "Ready"
+    19: "Ready",
+    20: "Close Grate",
+    21: "Empty Stoker",
+    22: "Pre-heat",
+    23: "Suction",
+    24: "Close RSE",
+    25: "Open RSE",
+    26: "Tip Grate",
+    27: "Pre-heating Ignition",
+    28: "Residual Feed",
+    29: "Fill Stoker",
+    30: "Heat Lambda Probe",
+    31: "Fan Run-on I",
+    32: "Fan Run-on II",
+    33: "Shut Down",
+    34: "Re-ignition",
+    35: "Ignition Wait",
+    36: "FB: Close RSE",
+    37: "FB: Ventilate Boiler",
+    38: "FB: Ignition",
+    39: "FB: Min Feed",
+    40: "Close RSE",
+    41: "FAULT: STB/NA",
+    42: "FAULT: Tipping Grate",
+    43: "FAULT: FR Overpressure",
+    44: "FAULT: Door Contact",
+    45: "FAULT: Induced Draft",
+    46: "FAULT: Environment",
+    47: "ERROR: STB/NA",
+    48: "ERROR: Tipping Grate",
+    49: "ERROR: FR Overpressure",
+    50: "ERROR: Door Contact",
+    51: "ERROR: Induced Draft",
+    52: "ERROR: Environment",
+    53: "ERROR: Stoker",
+    54: "FAULT: Stoker",
+    55: "FB: Empty Stoker",
+    56: "Pre-ventilation",
+    57: "FAULT: Wood Chips",
+    58: "ERROR: Wood Chips",
+    59: "AB: Door Open",
+    60: "AB: Heating Up",
+    61: "AB: Heating",
+    62: "ERROR: STB/NA",
+    63: "ERROR: General",
+    64: "AB: Fire Off",
+    65: "Self-test Active",
+    66: "Error Remedy 20min",
+    67: "ERROR: Drop Shaft",
+    68: "FAULT: Drop Shaft",
+    69: "Cleaning Possible",
+    70: "Heating - Cleaning",
+    71: "LW Heating Up",
+    72: "LW Heating",
+    73: "LW Heat/Shutdown",
+    74: "FAULT Safe",
+    75: "AGR Run-on",
+    76: "AGR Cleaning",
+    77: "Ignition OFF",
+    78: "Filter Cleaning",
+    79: "Heating Assistant",
+    80: "LW Ignition",
+    81: "LW Fault",
+    82: "Sensor Check"
 }
 
 
@@ -138,7 +201,20 @@ def main():
             
             # Show operating state
             if furnace_code is not None:
-                operating = furnace_code >= 2 and furnace_code <= 17
+                # Boiler is considered "operating" when actively heating or preparing to heat
+                # Includes: heating, fire maintenance, preparation, ignition, and related states
+                # Excludes: off, faults, errors, door open, cleaning, shutdown sequences
+                OPERATING_STATES = {
+                    2, 3, 4,      # Heating Up, Heating, Fire Maintenance
+                    7, 8, 9,      # Preparation, Pre-heating, Ignition
+                    17,           # Suction Heating
+                    27, 34, 38,   # Pre-heating Ignition, Re-ignition, FB: Ignition
+                    56,           # Pre-ventilation
+                    60, 61,       # AB: Heating Up, AB: Heating
+                    70, 71, 72, 73,  # Heating - Cleaning, LW Heating Up, LW Heating, LW Heat/Shutdown
+                    80            # LW Ignition
+                }
+                operating = furnace_code in OPERATING_STATES
                 print(f"Boiler Operating: {'YES' if operating else 'NO'}")
         
     finally:

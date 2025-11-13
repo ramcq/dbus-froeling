@@ -277,27 +277,49 @@ class BoilerOperatingContact:
             self.dbusservice['/FurnaceStatus'] = furnace_status_text
             self.dbusservice['/FurnaceStatusCode'] = furnace_status_code
 
-            # Determine if boiler is operating
-            # Boiler is considered "operating" when actively heating or preparing to heat
-            # Includes: heating, fire maintenance, preparation, ignition, and related states
-            # Excludes: off, faults, errors, door open, cleaning, shutdown sequences
-            OPERATING_STATES = {
-                2, 3, 4,      # Heating Up, Heating, Fire Maintenance
-                7, 8, 9,      # Preparation, Pre-heating, Ignition
-                17,           # Suction Heating
-                27, 34, 38,   # Pre-heating Ignition, Re-ignition, FB: Ignition
-                56,           # Pre-ventilation
-                60, 61,       # AB: Heating Up, AB: Heating
-                70, 71, 72, 73,  # Heating - Cleaning, LW Heating Up, LW Heating, LW Heat/Shutdown
-                80            # LW Ignition
+            # Conservative status categorization:
+            # FAULT_STATES: All error/fault conditions (sets alarm signal)
+            FAULT_STATES = {
+                0,            # FAULT
+                18,           # Ignition Fault
+                41, 42, 43, 44, 45, 46,  # FAULT: STB/NA, Tipping Grate, FR Overpressure, Door Contact, Induced Draft, Environment
+                47, 48, 49, 50, 51, 52, 53, 54,  # ERROR: STB/NA, Tipping Grate, FR Overpressure, Door Contact, Induced Draft, Environment, Stoker, FAULT: Stoker
+                57, 58,       # FAULT: Wood Chips, ERROR: Wood Chips
+                62, 63,       # ERROR: STB/NA, ERROR: General
+                66,           # Error Remedy 20min
+                67, 68,       # ERROR: Drop Shaft, FAULT: Drop Shaft
+                74,           # FAULT Safe
+                81            # LW Fault
             }
-            operating = furnace_status_code in OPERATING_STATES
+
+            # IDLE_STATES: Definitely not operating (off, ready, waiting states)
+            IDLE_STATES = {
+                1,            # Furnace Off
+                5,            # Fire Off
+                16,           # Wait 2h
+                19,           # Ready
+                33,           # Shut Down
+                64,           # AB: Fire Off
+                77            # Ignition OFF
+            }
+
+            # Operating logic: NOT fault and NOT idle = operating
+            # This includes all startup sequences (tip grate, filling, ignition, etc.),
+            # shutdown sequences with active feeding, cleaning cycles, etc.
+            is_fault = furnace_status_code in FAULT_STATES
+            is_idle = furnace_status_code in IDLE_STATES
+            operating = not is_fault and not is_idle
+
+            # Set alarm signal for fault/error states
+            self.dbusservice['/Alarm'] = 1 if is_fault else 0
+
             # State: 10=running, 11=stopped
             self.dbusservice['/State'] = 10 if operating else 11
             self.dbusservice['/Connected'] = 1
         else:
-            # Disconnected - set to stopped
+            # Disconnected - set to stopped, no alarm
             self.dbusservice['/State'] = 11
+            self.dbusservice['/Alarm'] = 0
             self.dbusservice['/Connected'] = 0
 
 

@@ -30,7 +30,19 @@ if [ ! -d "${INSTALL_PATH}/ext/velib_python" ]; then
     echo "Downloading velib_python..."
     mkdir -p "${INSTALL_PATH}/ext"
     cd "${INSTALL_PATH}/ext"
-    git clone https://github.com/victronenergy/velib_python.git
+
+    # Try git first
+    if command -v git &> /dev/null; then
+        git clone https://github.com/victronenergy/velib_python.git
+    else
+        # Fallback to wget + tar if git not available
+        echo "Git not found, downloading archive..."
+        wget https://github.com/victronenergy/velib_python/archive/refs/heads/master.tar.gz -O velib_python.tar.gz
+        tar -xzf velib_python.tar.gz
+        mv velib_python-master velib_python
+        rm velib_python.tar.gz
+    fi
+
     cd -
 fi
 

@@ -49,17 +49,20 @@ exec multilog t s25000 n4 /var/log/dbus-froeling
 LOGSCRIPT
 chmod +x "${INSTALL_PATH}/service/log/run"
 
-# Create configuration file
-cat > "${INSTALL_PATH}/config.env" << 'CONFIG'
+# Create configuration file if not already present
+if [ ! -f "${INSTALL_PATH}/config.env" ]; then
+    cat > "${INSTALL_PATH}/config.env" << 'CONFIG'
 # Froeling T4e Configuration
 FROELING_HOST=192.168.1.245
 FROELING_PORT=502
 FROELING_DEVICE_ID=2
 UPDATE_INTERVAL=10000
 CONFIG
-
-echo "Configuration file created at ${INSTALL_PATH}/config.env"
-echo "Edit this file to customize your Froeling connection settings"
+    echo "Configuration file created at ${INSTALL_PATH}/config.env"
+    echo "Edit this file to customize your Froeling connection settings"
+else
+    echo "Configuration file already exists, skipping"
+fi
 
 # Create rc.local to persist service across reboots
 if [ ! -f "/data/rc.local" ]; then

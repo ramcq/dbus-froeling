@@ -247,7 +247,6 @@ class BoilerOperatingContact:
                                    gettextcallback=lambda p, v: "Running" if v == 10 else "Stopped")
         # Type: 9=Generator (closest match for a boiler)
         self.dbusservice.add_path('/Type', 9, writeable=False)
-        self.dbusservice.add_path('/Alarm', 0, writeable=False)
         self.dbusservice.add_path('/Count', 0, writeable=False)
         self.dbusservice.add_path('/CustomName', customname)
 
@@ -310,16 +309,12 @@ class BoilerOperatingContact:
             is_idle = furnace_status_code in IDLE_STATES
             operating = not is_fault and not is_idle
 
-            # Set alarm signal for fault/error states
-            self.dbusservice['/Alarm'] = 1 if is_fault else 0
-
             # State: 10=running, 11=stopped
             self.dbusservice['/State'] = 10 if operating else 11
             self.dbusservice['/Connected'] = 1
         else:
-            # Disconnected - set to stopped, no alarm
+            # Disconnected - set to stopped
             self.dbusservice['/State'] = 11
-            self.dbusservice['/Alarm'] = 0
             self.dbusservice['/Connected'] = 0
 
 

@@ -6,9 +6,10 @@ Publishes buffer tank temperatures and boiler status to Venus OS for integration
 
 ## Features
 
-- **Two temperature sensors** for Venus OS:
+- **Three temperature sensors** for Venus OS:
   - Buffer tank top temperature
   - Buffer tank bottom temperature
+  - Boiler flow temperature
   - Appears in Venus OS GUI and VRM portal
   - Proper device instances for clean organization
 
@@ -99,6 +100,17 @@ Service: `com.victronenergy.temperature.froeling_buffer_bottom`
 - `/TemperatureType` - 2 (generic)
 - `/CustomName` - "Buffer Bottom"
 - `/DeviceInstance` - 101 (default)
+
+### Boiler Flow Temperature
+Service: `com.victronenergy.temperature.froeling_boiler_flow`
+
+- `/Temperature` - Temperature in °C
+- `/Status` - 0=Ok, 1=Disconnected
+- `/TemperatureType` - 2 (generic)
+- `/CustomName` - "Boiler Flow"
+- `/DeviceInstance` - 103 (default)
+
+Reads low when the boiler is idle - this is normal, not a fault.
 
 ### Boiler Operating Contact (Digital Input)
 Service: `com.victronenergy.digitalinput.froeling_operating`

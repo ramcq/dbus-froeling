@@ -40,6 +40,7 @@ FROELING_DEVICE_ID = int(os.environ.get('FROELING_DEVICE_ID', '2'))
 UPDATE_INTERVAL = int(os.environ.get('UPDATE_INTERVAL', '10000'))  # milliseconds (10 seconds)
 
 # Modbus register definitions (offsets from 30001)
+BOILER_FLOW_TEMP = 0        # Register 30001: Boiler flow temperature (°C * 2)
 BUFFER_TEMP_TOP = 2000      # Register 32001: Buffer top temperature (°C * 2)
 BUFFER_TEMP_BOTTOM = 2002   # Register 32003: Buffer bottom temperature (°C * 2)
 SYSTEM_STATUS = 4000        # Register 34001: System operating status
@@ -344,6 +345,14 @@ class FroelingMonitor:
             'Buffer Bottom'
         )
 
+        self.boiler_flow = TemperatureSensor(
+            'com.victronenergy.temperature.froeling_boiler_flow',
+            '/Settings/Devices/froeling_boiler_flow/ClassAndVrmInstance',
+            103,
+            'Froeling Boiler Flow',
+            'Boiler Flow'
+        )
+
         self.operating_contact = BoilerOperatingContact(
             'com.victronenergy.digitalinput.froeling_operating',
             '/Settings/Devices/froeling_operating/ClassAndVrmInstance',
@@ -431,18 +440,21 @@ class FroelingMonitor:
                 # Mark all devices as disconnected
                 self.buffer_top.update(None)
                 self.buffer_bottom.update(None)
+                self.boiler_flow.update(None)
                 self.operating_contact.update(None, None)
                 return True
-        
+
         try:
-            # Read buffer tank temperatures
+            # Read buffer tank and boiler flow temperatures
             temp_top = self.read_temperature(BUFFER_TEMP_TOP)
             temp_bottom = self.read_temperature(BUFFER_TEMP_BOTTOM)
-            
+            temp_flow = self.read_temperature(BOILER_FLOW_TEMP)
+
             # Update temperature sensors
             self.buffer_top.update(temp_top)
             self.buffer_bottom.update(temp_bottom)
-            
+            self.boiler_flow.update(temp_flow)
+
             # Read boiler status
             system_status_code = self.read_status(SYSTEM_STATUS)
             furnace_status_code = self.read_status(FURNACE_STATUS)
@@ -451,6 +463,7 @@ class FroelingMonitor:
             self.operating_contact.update(system_status_code, furnace_status_code)
 
             logger.debug(f"Updated: Top={temp_top}°C, Bottom={temp_bottom}°C, "
+                        f"Flow={temp_flow}°C, "
                         f"System={system_status_code}, Furnace={furnace_status_code}")
 
         except Exception as e:
@@ -458,6 +471,7 @@ class FroelingMonitor:
             # Mark devices as disconnected on error
             self.buffer_top.update(None)
             self.buffer_bottom.update(None)
+            self.boiler_flow.update(None)
             self.operating_contact.update(None, None)
         
         return True  # Keep timer running

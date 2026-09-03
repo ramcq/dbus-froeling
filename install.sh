@@ -38,6 +38,14 @@ fi
 cat > "${INSTALL_PATH}/service/run" << 'RUNSCRIPT'
 #!/bin/sh
 exec 2>&1
+
+# config.env holds bare KEY=value lines, so export them for os.environ
+if [ -f /data/etc/dbus-froeling/config.env ]; then
+    set -a
+    . /data/etc/dbus-froeling/config.env
+    set +a
+fi
+
 exec python3 /data/etc/dbus-froeling/dbus-froeling.py
 RUNSCRIPT
 chmod +x "${INSTALL_PATH}/service/run"

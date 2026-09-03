@@ -39,6 +39,10 @@ FROELING_PORT = int(os.environ.get('FROELING_PORT', '502'))
 FROELING_DEVICE_ID = int(os.environ.get('FROELING_DEVICE_ID', '2'))
 UPDATE_INTERVAL = int(os.environ.get('UPDATE_INTERVAL', '10000'))  # milliseconds (10 seconds)
 
+# Seconds to wait for localsettings to appear. SettingsDevice raises immediately with
+# the default of 0, which loses the race if this service starts first at boot.
+SETTINGS_TIMEOUT = 10
+
 # Modbus register definitions (offsets from 30001)
 BOILER_FLOW_TEMP = 0        # Register 30001: Boiler flow temperature (°C * 2)
 BUFFER_TEMP_TOP = 2000      # Register 32001: Buffer top temperature (°C * 2)
@@ -167,7 +171,8 @@ class TemperatureSensor:
             supportedSettings={
                 'instance': [settingspath, f'temperature:{default_instance}', 0, 0],
             },
-            eventCallback=None
+            eventCallback=None,
+            timeout=SETTINGS_TIMEOUT
         )
         
         # Parse the device instance from settings (format is class:instance)
@@ -224,7 +229,8 @@ class BoilerOperatingContact:
             supportedSettings={
                 'instance': [settingspath, f'digitalinput:{default_instance}', 0, 0],
             },
-            eventCallback=None
+            eventCallback=None,
+            timeout=SETTINGS_TIMEOUT
         )
 
         # Parse the device instance from settings (format is class:instance)

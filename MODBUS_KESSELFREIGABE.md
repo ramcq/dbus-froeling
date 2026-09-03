@@ -384,8 +384,8 @@ and VRM all see what they expect:
 ```
 /ProductId       41318 (0xA166)   # PinAlarm.product_id
 /Type            3
-/InputState      0|1              # raw bit
-/State           2|3              # Off|On
+/InputState      0|1              # raw bit, invalid until the first read
+/State           2|3              # Off|On, invalid until the first read
 /Alarm           0                # alarm not used
 /Count           0                # not used; the GX GUI does not display it
 /CustomName      "Boiler Release"  # writeable, persisted
@@ -393,6 +393,13 @@ and VRM all see what they expect:
 /Settings/InvertTranslation       # writeable
 /Settings/InvertAlarm             # writeable
 ```
+
+`/InputState` and `/State` are published as invalid (`None`) until the first successful poll.
+Publishing a placeholder level instead would assert a state that has not been measured, and
+because `/State` is `2 * TRANSLATION + level`, the placeholder for the operating contact's
+Running/Stopped translation is `10` — "Running". Subscribers see that correct itself to `11`
+one poll later, which reads as the boiler having lit and gone out. For the same reason a failed
+read holds the last known state and clears `/Connected`, rather than asserting "stopped".
 
 `/Count` is part of the `PinAlarm` shape and is published as a constant `0`. The GX GUI has no
 display for it, so counting edges would only be state that resets on restart and is read by

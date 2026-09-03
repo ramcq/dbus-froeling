@@ -286,10 +286,13 @@ class DigitalInput:
         self.dbusservice.add_path('/HardwareVersion', 'T4e')
         self.dbusservice.add_path('/Connected', 1)
 
-        # Digital input paths, in the order dbus-digitalinputs creates them
-        self.dbusservice.add_path('/InputState', 0, writeable=False)
-        self.dbusservice.add_path('/State', self._state_for(0), writeable=False,
-                                   gettextcallback=lambda p, v: DIGITAL_INPUT_TRANSLATIONS[v // 2][v % 2])
+        # Digital input paths, in the order dbus-digitalinputs creates them.
+        # /InputState and /State stay invalid until the first successful read: publishing
+        # a placeholder level asserts a state we have not measured, and subscribers see
+        # that placeholder correct itself one poll later as a real edge.
+        self.dbusservice.add_path('/InputState', None, writeable=False)
+        self.dbusservice.add_path('/State', None, writeable=False,
+                                   gettextcallback=self._state_text)
         self.dbusservice.add_path('/Alarm', 0, writeable=False)
         self.dbusservice.add_path('/Type', self.TYPE_ID, writeable=False)
         self.dbusservice.add_path('/Count', 0, writeable=False)
@@ -331,6 +334,12 @@ class DigitalInput:
             self.dbusservice[f'/Settings/{name}'] = new
             if self._level is not None:
                 self._publish(self._level)
+
+    def _state_text(self, path, value):
+        """GetText for /State, which is invalid until the first read"""
+        if value is None:
+            return ''
+        return DIGITAL_INPUT_TRANSLATIONS[value // 2][value % 2]
 
     def _state_for(self, level):
         return 2 * self.TRANSLATION + (level ^ self.settings['InvertTranslation'])
@@ -405,8 +414,10 @@ class BoilerOperatingContact(DigitalInput):
             self.dbusservice['/Connected'] = 0
 
         if furnace_status_code is None:
-            # Disconnected - report stopped
-            self._publish(1)
+            # Read failed. Hold the last known state rather than asserting "stopped":
+            # a transient Modbus error would otherwise show subscribers the boiler
+            # stopping and restarting, which reads as an ignition. /Connected says the
+            # value is stale.
             self.dbusservice['/Connected'] = 0
             return
 

@@ -113,7 +113,7 @@ FURNACE_STATUS_MAP = {
     30: "Heat Lambda Probe",
     31: "Fan Run-on I",
     32: "Fan Run-on II",
-    33: "Shut Down",
+    33: "Stopped",
     34: "Re-ignition",
     35: "Ignition Wait",
     36: "FB: Close RSE",
@@ -363,38 +363,26 @@ class DigitalInput:
 
 
 class BoilerOperatingContact(DigitalInput):
-    """The boiler's operating state as a digital input, plus its status information.
+    """Whether the boiler is in a burn, as a digital input, plus its status information.
 
-    Type 9 (Generator) uses the Running/Stopped translation, in which level 0 is
-    "Running" — so the level published here is the inverse of "operating".
+    "Running" is a burn: starting up or heating, not shutting down. Type 9 (Generator) uses
+    the Running/Stopped translation, in which level 0 is "Running" — so the level published
+    here is the inverse of "operating".
     """
 
     TYPE_ID = 9
     TRANSLATION = 5   # Running, Stopped
 
-    # All error and fault conditions
-    FAULT_STATES = {
-        0,            # FAULT
-        18,           # Ignition Fault
-        41, 42, 43, 44, 45, 46,  # FAULT: STB/NA, Tipping Grate, FR Overpressure, Door Contact, Induced Draft, Environment
-        47, 48, 49, 50, 51, 52, 53, 54,  # ERROR: STB/NA, Tipping Grate, FR Overpressure, Door Contact, Induced Draft, Environment, Stoker, FAULT: Stoker
-        57, 58,       # FAULT: Wood Chips, ERROR: Wood Chips
-        62, 63,       # ERROR: STB/NA, ERROR: General
-        66,           # Error Remedy 20min
-        67, 68,       # ERROR: Drop Shaft, FAULT: Drop Shaft
-        74,           # FAULT Safe
-        81            # LW Fault
-    }
-
-    # Definitely not operating (off, ready, waiting states)
-    IDLE_STATES = {
-        1,            # Furnace Off
-        5,            # Fire Off
-        16,           # Wait 2h
-        19,           # Ready
-        33,           # Shut Down
-        64,           # AB: Fire Off
-        77            # Ignition OFF
+    # A burn: starting up, heating, and the fault-handling steps that try to get back to
+    # heating. Shutting down, idle, faults and undocumented codes are stopped. Grouped from
+    # the status definitions in the T4e manual (B1820023 p.98) and the Modbus code list.
+    BURN_STATES = {
+        56, 7, 30, 29, 2,        # Pre-ventilation, Preparation, Heat Lambda Probe, Fill Stoker, Heating Up
+        20, 24, 40, 25,          # Close Grate, Close RSE (x2), Open RSE
+        8, 22, 27, 9, 35, 34,    # Pre-heating, Pre-heat, Pre-heating Ignition, Ignition, Ignition Wait, Re-ignition
+        26,                      # Tip Grate: opens every start; harmless when it ends a shutdown
+        3, 70, 4,                # Heating, Heating - Cleaning, Fire Maintenance
+        36, 37, 38, 39, 55       # FB: fault-handling steps
     }
 
     def _add_device_paths(self):
@@ -425,11 +413,7 @@ class BoilerOperatingContact(DigitalInput):
             furnace_status_code, f"Unknown ({furnace_status_code})")
         self.dbusservice['/FurnaceStatusCode'] = furnace_status_code
 
-        # Conservative status categorization: NOT fault and NOT idle = operating.
-        # This includes all startup sequences (tip grate, filling, ignition, etc.),
-        # shutdown sequences with active feeding, cleaning cycles, etc.
-        operating = (furnace_status_code not in self.FAULT_STATES
-                     and furnace_status_code not in self.IDLE_STATES)
+        operating = furnace_status_code in self.BURN_STATES
 
         # Level 0 is "Running" for the Generator translation
         self._apply(0 if operating else 1)

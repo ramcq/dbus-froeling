@@ -69,7 +69,7 @@ FURNACE_STATUS_MAP = {
     30: "Heat Lambda Probe",
     31: "Fan Run-on I",
     32: "Fan Run-on II",
-    33: "Shut Down",
+    33: "Stopped",
     34: "Re-ignition",
     35: "Ignition Wait",
     36: "FB: Close RSE",
@@ -201,40 +201,16 @@ def main():
 
             # Show operating state and alarm status
             if furnace_code is not None:
-                # Conservative status categorization:
-                # FAULT_STATES: All error/fault conditions (sets alarm signal)
-                FAULT_STATES = {
-                    0,            # FAULT
-                    18,           # Ignition Fault
-                    41, 42, 43, 44, 45, 46,  # FAULT: STB/NA, Tipping Grate, FR Overpressure, Door Contact, Induced Draft, Environment
-                    47, 48, 49, 50, 51, 52, 53, 54,  # ERROR: STB/NA, Tipping Grate, FR Overpressure, Door Contact, Induced Draft, Environment, Stoker, FAULT: Stoker
-                    57, 58,       # FAULT: Wood Chips, ERROR: Wood Chips
-                    62, 63,       # ERROR: STB/NA, ERROR: General
-                    66,           # Error Remedy 20min
-                    67, 68,       # ERROR: Drop Shaft, FAULT: Drop Shaft
-                    74,           # FAULT Safe
-                    81            # LW Fault
-                }
+                # Kept in step with BoilerOperatingContact in dbus-froeling.py
+                BURN_STATES = {56, 7, 30, 29, 2, 20, 24, 40, 25, 8, 22, 27, 9, 35, 34,
+                               26, 3, 70, 4, 36, 37, 38, 39, 55}
+                FAULT_STATES = {0, 18, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53,
+                                54, 57, 58, 62, 63, 66, 67, 68, 74, 81}
 
-                # IDLE_STATES: Definitely not operating (off, ready, waiting states)
-                IDLE_STATES = {
-                    1,            # Furnace Off
-                    5,            # Fire Off
-                    16,           # Wait 2h
-                    19,           # Ready
-                    33,           # Shut Down
-                    64,           # AB: Fire Off
-                    77            # Ignition OFF
-                }
-
-                # Operating logic: NOT fault and NOT idle = operating
-                # This includes all startup sequences (tip grate, filling, ignition, etc.),
-                # shutdown sequences with active feeding, cleaning cycles, etc.
                 is_fault = furnace_code in FAULT_STATES
-                is_idle = furnace_code in IDLE_STATES
-                operating = not is_fault and not is_idle
+                operating = furnace_code in BURN_STATES
 
-                print(f"Boiler Operating: {'YES' if operating else 'NO'}")
+                print(f"Boiler Burning: {'YES' if operating else 'NO'}")
                 print(f"Alarm Status: {'FAULT/ERROR' if is_fault else 'OK'}")
         
     finally:

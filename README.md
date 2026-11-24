@@ -16,7 +16,7 @@ Publishes buffer tank temperatures and boiler status to Venus OS for integration
 - **Boiler status monitoring**:
   - System operating mode (Automatic, Domestic Hot Water, etc.)
   - Furnace state (Heating, Off, Ignition, etc.)
-  - Digital input contact: Boiler Operating (running/stopped)
+  - Digital input contact: Boiler Operating (running while the boiler is in a burn)
   - Available via dbus and published to MQTT
 
 - **Robust implementation**:
@@ -256,27 +256,20 @@ ln -sf /data/etc/dbus-froeling/service /service/dbus-froeling
 
 ### Boiler Operating Logic
 
-The digital input `/State` is **10 (running)** when furnace status is **2-17** (any active/non-idle state):
-- 2: Heating Up
-- 3: Heating
-- 4: Fire Maintenance
-- 5: Fire Off
-- 6: Door Open
-- 7: Preparation
-- 8: Pre-heating
-- 9: Ignition
-- 10: Shutdown Wait
-- 11: Shutdown Wait 1
-- 12: Shutdown Feed 1
-- 13: Shutdown Wait 2
-- 14: Shutdown Feed 2
-- 15: Cleaning
-- 16: Wait 2h
-- 17: Suction Heating
+The digital input `/State` is **10 (running)** while the boiler is in a **burn**: starting
+up or heating. Shutting down, idle, faults and any code not listed are **11 (stopped)**.
 
-Only **0 (FAULT)**, **1 (Furnace Off)**, **18 (Ignition Fault)**, and **19 (Ready/Standby)** are considered not operating (State = **11 (stopped)**).
+| Group | Codes | State |
+|---|---|---|
+| Starting up | 56, 7, 30, 29, 2, 20, 24, 40, 25, 8, 22, 27, 9, 35, 34, 26 (Tip Grate) | Running |
+| Heating | 3, 70, 4 | Running |
+| Fault handling | 36, 37, 38, 39, 55 | Running |
+| Shutting down | 21, 28, 10–14, 31, 32, 15, 75, 77 | Stopped |
+| Idle | 19, 33, 1, 5, 69 | Stopped |
+| Faults, undocumented | everything else | Stopped |
 
-This means the boiler is considered "running" (State=10) whenever it's doing anything - heating, shutting down, cleaning, etc. - only complete shutdown, standby, or fault states are considered "stopped" (State=11).
+Shutdown is stopped because a release withdrawn then changes nothing: the boiler is already
+burning out. Tip Grate opens every start, so it counts as starting up.
 
 ## Files
 
